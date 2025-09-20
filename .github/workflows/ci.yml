@@ -1,0 +1,49 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: grouppay
+          POSTGRES_PASSWORD: grouppay
+          POSTGRES_DB: grouppay
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prisma generate
+        run: npm run prisma:generate
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://grouppay:grouppay@localhost:5432/grouppay?schema=public
+        run: npm run prisma:deploy
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://grouppay:grouppay@localhost:5432/grouppay?schema=public
+        run: npm test

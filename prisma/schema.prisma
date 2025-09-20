@@ -1,0 +1,268 @@
+// Prisma schema for Grouppay backend – managed by Developer 1
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GroupMemberRole {
+  HOST
+  ADMIN
+  MEMBER
+}
+
+enum GroupMemberStatus {
+  PENDING
+  ACTIVE
+  REMOVED
+}
+
+enum RecurringPlanType {
+  CONTRIBUTION
+  PAYOUT
+}
+
+enum RecurringPlanStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum TransactionType {
+  CONTRIBUTION
+  PAYOUT
+  ESCROW_CREATE
+  ESCROW_FINISH
+  ESCROW_CANCEL
+  BATCH
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum CashoutStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FULFILLED
+}
+
+model User {
+  id               String           @id @default(uuid())
+  email            String?          @unique
+  fullName         String
+  primaryWalletId  String?          @unique
+  primaryWallet    Wallet?          @relation("PrimaryWallet", fields: [primaryWalletId], references: [id])
+  wallets          Wallet[]         @relation("UserWallets")
+  ownedGroups      Group[]          @relation("HostGroups")
+  groupMemberships GroupMember[]
+  passwordHash     String?
+  twoFactorSecret  String?
+  biometricMeta    Json?
+  role             UserRole         @default(MEMBER)
+  sessions         Session[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  recurringPlans   RecurringPlan[]  @relation("UserRecurringPlans")
+  permissionedDomains PermissionedDomain[] @relation("UserPermissionedDomains")
+  walletBackups    WalletBackup[]
+  socialRecoveryConfig SocialRecoveryConfig?
+  multisigConfig   MultisigConfig?
+}
+
+enum UserRole {
+  MEMBER
+  ADMIN
+}
+
+model Wallet {
+  id                       String             @id @default(uuid())
+  xrplAddress              String             @unique
+  publicKey                String?
+  encryptedSecret          String?
+  label                    String?
+  ownerUserId              String?
+  ownerUser                User?              @relation("UserWallets", fields: [ownerUserId], references: [id])
+  primaryForUser           User?              @relation("PrimaryWallet")
+  groupWallet              Group?             @relation("GroupWallet")
+  sourceTransactions       Transaction[]      @relation("SourceTransactions")
+  destinationTransactions  Transaction[]      @relation("DestinationTransactions")
+  recurringPlans           RecurringPlan[]    @relation("DestinationWalletPlans")
+  createdAt                DateTime           @default(now())
+}
+
+model Group {
+  id                  String              @id @default(uuid())
+  hostUserId          String
+  hostUser            User                @relation("HostGroups", fields: [hostUserId], references: [id])
+  title               String
+  description         String?
+  groupWalletId       String              @unique
+  groupWallet         Wallet              @relation("GroupWallet", fields: [groupWalletId], references: [id])
+  members             GroupMember[]
+  recurringPlans      RecurringPlan[]
+  transactions        Transaction[]
+  permissionedDomains PermissionedDomain[]
+  cashoutRequests     CashoutRequest[]
+  approvedGateways    ApprovedGateway[]
+  createdAt           DateTime            @default(now())
+}
+
+model GroupMember {
+  id        String             @id @default(uuid())
+  groupId   String
+  userId    String
+  role      GroupMemberRole    @default(MEMBER)
+  status    GroupMemberStatus  @default(PENDING)
+  joinedAt  DateTime?
+
+  group     Group              @relation(fields: [groupId], references: [id])
+  user      User               @relation(fields: [userId], references: [id])
+  cashouts  CashoutRequest[]
+
+  @@unique([groupId, userId])
+}
+
+model RecurringPlan {
+  id                  String               @id @default(uuid())
+  groupId             String
+  createdById         String
+  type                RecurringPlanType
+  amountDrops         Decimal              @db.Decimal(20, 0)
+  currency            String               @default("XRP")
+  scheduleCron        String
+  memo                String?
+  destinationWalletId String?
+  escrowReleaseAt     DateTime?
+  status              RecurringPlanStatus  @default(ACTIVE)
+  createdAt           DateTime             @default(now())
+
+  group               Group                @relation(fields: [groupId], references: [id])
+  createdBy           User                 @relation("UserRecurringPlans", fields: [createdById], references: [id])
+  destinationWallet   Wallet?              @relation("DestinationWalletPlans", fields: [destinationWalletId], references: [id])
+  transactions        Transaction[]
+}
+
+model Transaction {
+  id                   String              @id @default(uuid())
+  groupId              String
+  xrplHash             String?             @unique
+  type                 TransactionType
+  amountDrops          Decimal             @db.Decimal(20, 0)
+  currency             String              @default("XRP")
+  sourceWalletId       String?
+  destinationWalletId  String?
+  memo                 String?
+  status               TransactionStatus   @default(PENDING)
+  submittedAt          DateTime            @default(now())
+  confirmedAt          DateTime?
+  recurringPlanId      String?
+
+  group                Group               @relation(fields: [groupId], references: [id])
+  sourceWallet         Wallet?             @relation("SourceTransactions", fields: [sourceWalletId], references: [id])
+  destinationWallet    Wallet?             @relation("DestinationTransactions", fields: [destinationWalletId], references: [id])
+  recurringPlan        RecurringPlan?      @relation(fields: [recurringPlanId], references: [id])
+}
+
+model PermissionedDomain {
+  id           String            @id @default(uuid())
+  groupId      String
+  domain       String
+  label        String?
+  createdById  String
+  verifiedAt   DateTime?
+  createdAt    DateTime          @default(now())
+
+  group        Group             @relation(fields: [groupId], references: [id])
+  createdBy    User              @relation("UserPermissionedDomains", fields: [createdById], references: [id])
+  cashoutRequests CashoutRequest[]
+
+  @@unique([groupId, domain])
+}
+
+model CashoutRequest {
+  id                    String         @id @default(uuid())
+  groupId               String
+  memberId              String
+  requestedAmountDrops  Decimal        @db.Decimal(20, 0)
+  targetDomainId        String
+  status                CashoutStatus  @default(PENDING)
+  createdAt             DateTime       @default(now())
+  resolvedAt            DateTime?
+  receipt               CashoutReceipt?
+
+  group                 Group          @relation(fields: [groupId], references: [id])
+  member                GroupMember    @relation(fields: [memberId], references: [id])
+  targetDomain          PermissionedDomain @relation(fields: [targetDomainId], references: [id])
+}
+
+model CashoutReceipt {
+  id          String         @id @default(uuid())
+  requestId   String         @unique
+  hash        String         @unique
+  issuedAt    DateTime       @default(now())
+
+  request     CashoutRequest @relation(fields: [requestId], references: [id])
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  userId      String
+  refreshToken String  @unique
+  userAgent   String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model WalletBackup {
+  id           String   @id @default(uuid())
+  userId       String
+  encryptedData String
+  label        String?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model SocialRecoveryConfig {
+  id         String  @id @default(uuid())
+  userId     String  @unique
+  guardians  Json
+  threshold  Int
+  createdAt  DateTime @default(now())
+
+  user       User    @relation(fields: [userId], references: [id])
+}
+
+model MultisigConfig {
+  id          String  @id @default(uuid())
+  userId      String  @unique
+  signers     Json
+  quorum      Int
+  createdAt   DateTime @default(now())
+
+  user        User    @relation(fields: [userId], references: [id])
+}
+
+model ApprovedGateway {
+  id          String   @id @default(uuid())
+  groupId     String
+  provider    String
+  domain      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  group       Group    @relation(fields: [groupId], references: [id])
+  @@unique([groupId, provider, domain])
+}

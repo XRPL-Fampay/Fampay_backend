@@ -1,487 +1,200 @@
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
-const crypto = require("crypto-js");
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const createError = require('http-errors');
+const { prisma } = require('../db/prisma');
+const config = require('../config');
 
-/**
- * JWT 기반 인증 서비스
- * 개발자 2 담당 - 보안 중심 구현
- */
-class AuthService {
-  constructor() {
-    this.jwtSecret = process.env.JWT_SECRET || "fampay-super-secret-key-2024";
-    this.jwtRefreshSecret =
-      process.env.JWT_REFRESH_SECRET || "fampay-refresh-secret-key-2024";
-    this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || "15m";
-    this.refreshTokenExpiresIn = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d";
-    this.saltRounds = 12;
+const ACCESS_SECRET = config.auth.accessTokenSecret;
+const REFRESH_SECRET = config.auth.refreshTokenSecret;
+const ACCESS_TTL = config.auth.accessTokenTtl;
+const REFRESH_TTL = config.auth.refreshTokenTtl;
+
+function parseExpiresIn(ttl) {
+  const match = ttl.match(/^(\d+)([smhdw])$/i);
+  if (!match) {
+    throw new Error(`Invalid TTL format: ${ttl}`);
   }
-
-  /**
-   * 비밀번호 해시 생성
-   * @param {string} password - 원본 비밀번호
-   * @returns {Promise<string>} 해시된 비밀번호
-   */
-  async hashPassword(password) {
-    try {
-      const salt = await bcrypt.genSalt(this.saltRounds);
-      const hashedPassword = await bcrypt.hash(password, salt);
-      return hashedPassword;
-    } catch (error) {
-      console.error("❌ Password hashing failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 비밀번호 검증
-   * @param {string} password - 입력된 비밀번호
-   * @param {string} hashedPassword - 저장된 해시 비밀번호
-   * @returns {Promise<boolean>} 검증 결과
-   */
-  async verifyPassword(password, hashedPassword) {
-    try {
-      const isValid = await bcrypt.compare(password, hashedPassword);
-      return isValid;
-    } catch (error) {
-      console.error("❌ Password verification failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * JWT 액세스 토큰 생성
-   * @param {Object} payload - 토큰에 포함할 데이터
-   * @returns {string} JWT 토큰
-   */
-  generateAccessToken(payload) {
-    try {
-      const token = jwt.sign(
-        {
-          ...payload,
-          type: "access",
-          iat: Math.floor(Date.now() / 1000),
-        },
-        this.jwtSecret,
-        {
-          expiresIn: this.jwtExpiresIn,
-          issuer: "fampay-backend",
-          audience: "fampay-app",
-        }
-      );
-
-      return token;
-    } catch (error) {
-      console.error("❌ Access token generation failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * JWT 리프레시 토큰 생성
-   * @param {Object} payload - 토큰에 포함할 데이터
-   * @returns {string} 리프레시 토큰
-   */
-  generateRefreshToken(payload) {
-    try {
-      const token = jwt.sign(
-        {
-          userId: payload.userId,
-          type: "refresh",
-          iat: Math.floor(Date.now() / 1000),
-        },
-        this.jwtRefreshSecret,
-        {
-          expiresIn: this.refreshTokenExpiresIn,
-          issuer: "fampay-backend",
-          audience: "fampay-app",
-        }
-      );
-
-      return token;
-    } catch (error) {
-      console.error("❌ Refresh token generation failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * JWT 토큰 검증
-   * @param {string} token - 검증할 토큰
-   * @param {string} type - 토큰 타입 (access|refresh)
-   * @returns {Object} 디코딩된 토큰 데이터
-   */
-  verifyToken(token, type = "access") {
-    try {
-      const secret =
-        type === "refresh" ? this.jwtRefreshSecret : this.jwtSecret;
-      const decoded = jwt.verify(token, secret, {
-        issuer: "fampay-backend",
-        audience: "fampay-app",
-      });
-
-      // 토큰 타입 검증
-      if (decoded.type !== type) {
-        throw new Error(
-          `Invalid token type. Expected: ${type}, Got: ${decoded.type}`
-        );
-      }
-
-      return decoded;
-    } catch (error) {
-      console.error(`❌ ${type} token verification failed:`, error.message);
-      throw error;
-    }
-  }
-
-  /**
-   * 사용자 등록
-   * @param {Object} userData - 사용자 데이터
-   * @returns {Object} 등록 결과
-   */
-  async registerUser(userData) {
-    try {
-      const {
-        email,
-        password,
-        walletAddress,
-        familyRole = "member",
-      } = userData;
-
-      // 비밀번호 해시
-      const hashedPassword = await this.hashPassword(password);
-
-      // 사용자 ID 생성
-      const userId = crypto.lib.WordArray.random(16).toString();
-
-      const user = {
-        userId,
-        email,
-        password: hashedPassword,
-        walletAddress,
-        familyRole,
-        createdAt: new Date().toISOString(),
-        isActive: true,
-        emailVerified: false,
-        twoFactorEnabled: false,
-      };
-
-      console.log("✅ User registered:", {
-        userId,
-        email,
-        walletAddress,
-        familyRole,
-      });
-
-      return {
-        success: true,
-        user: {
-          userId: user.userId,
-          email: user.email,
-          walletAddress: user.walletAddress,
-          familyRole: user.familyRole,
-          createdAt: user.createdAt,
-        },
-      };
-    } catch (error) {
-      console.error("❌ User registration failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 사용자 로그인
-   * @param {string} email - 이메일
-   * @param {string} password - 비밀번호
-   * @param {Object} storedUser - 저장된 사용자 데이터 (실제로는 DB에서 조회)
-   * @returns {Object} 로그인 결과
-   */
-  async loginUser(email, password, storedUser) {
-    try {
-      // 비밀번호 검증
-      const isPasswordValid = await this.verifyPassword(
-        password,
-        storedUser.password
-      );
-
-      if (!isPasswordValid) {
-        throw new Error("Invalid credentials");
-      }
-
-      // 계정 활성화 상태 확인
-      if (!storedUser.isActive) {
-        throw new Error("Account is deactivated");
-      }
-
-      // 토큰 생성
-      const tokenPayload = {
-        userId: storedUser.userId,
-        email: storedUser.email,
-        walletAddress: storedUser.walletAddress,
-        familyRole: storedUser.familyRole,
-      };
-
-      const accessToken = this.generateAccessToken(tokenPayload);
-      const refreshToken = this.generateRefreshToken(tokenPayload);
-
-      // 로그인 기록
-      const loginSession = {
-        sessionId: crypto.lib.WordArray.random(16).toString(),
-        userId: storedUser.userId,
-        loginAt: new Date().toISOString(),
-        ipAddress: "unknown", // 실제 구현에서는 req.ip 사용
-        userAgent: "unknown", // 실제 구현에서는 req.headers['user-agent'] 사용
-        refreshToken: refreshToken,
-      };
-
-      console.log("✅ User logged in:", {
-        userId: storedUser.userId,
-        email: storedUser.email,
-        sessionId: loginSession.sessionId,
-      });
-
-      return {
-        success: true,
-        accessToken,
-        refreshToken,
-        user: {
-          userId: storedUser.userId,
-          email: storedUser.email,
-          walletAddress: storedUser.walletAddress,
-          familyRole: storedUser.familyRole,
-        },
-        session: loginSession,
-      };
-    } catch (error) {
-      console.error("❌ User login failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 토큰 갱신
-   * @param {string} refreshToken - 리프레시 토큰
-   * @param {Object} storedUser - 저장된 사용자 데이터
-   * @returns {Object} 새로운 토큰들
-   */
-  async refreshTokens(refreshToken, storedUser) {
-    try {
-      // 리프레시 토큰 검증
-      const decoded = this.verifyToken(refreshToken, "refresh");
-
-      // 사용자 ID 매칭 확인
-      if (decoded.userId !== storedUser.userId) {
-        throw new Error("Invalid refresh token");
-      }
-
-      // 새 토큰 생성
-      const tokenPayload = {
-        userId: storedUser.userId,
-        email: storedUser.email,
-        walletAddress: storedUser.walletAddress,
-        familyRole: storedUser.familyRole,
-      };
-
-      const newAccessToken = this.generateAccessToken(tokenPayload);
-      const newRefreshToken = this.generateRefreshToken(tokenPayload);
-
-      console.log("✅ Tokens refreshed:", {
-        userId: storedUser.userId,
-        email: storedUser.email,
-      });
-
-      return {
-        success: true,
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-      };
-    } catch (error) {
-      console.error("❌ Token refresh failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * XRPL 지갑 기반 인증 (서명 검증)
-   * @param {string} walletAddress - 지갑 주소
-   * @param {string} message - 서명할 메시지
-   * @param {string} signature - 지갑 서명
-   * @returns {Object} 검증 결과
-   */
-  verifyWalletSignature(walletAddress, message, signature) {
-    try {
-      // 실제 구현에서는 XRPL 서명 검증 로직 필요
-      // 현재는 기본 검증만 수행
-
-      if (!walletAddress || !message || !signature) {
-        throw new Error("Missing required parameters for wallet verification");
-      }
-
-      // 기본 형식 검증
-      if (!walletAddress.startsWith("r") || walletAddress.length < 25) {
-        throw new Error("Invalid XRPL wallet address format");
-      }
-
-      console.log("✅ Wallet signature verified:", {
-        walletAddress,
-        messageLength: message.length,
-        signatureLength: signature.length,
-      });
-
-      return {
-        success: true,
-        walletAddress,
-        verified: true,
-        verifiedAt: new Date().toISOString(),
-      };
-    } catch (error) {
-      console.error("❌ Wallet signature verification failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 생체인증 준비 (메타데이터 저장)
-   * @param {string} userId - 사용자 ID
-   * @param {string} biometricType - 생체인증 타입 (fingerprint, face, voice)
-   * @returns {Object} 생체인증 설정
-   */
-  setupBiometricAuth(userId, biometricType) {
-    try {
-      const biometricConfig = {
-        userId,
-        biometricType,
-        enabled: true,
-        setupAt: new Date().toISOString(),
-        biometricId: crypto.lib.WordArray.random(16).toString(),
-        deviceId: crypto.lib.WordArray.random(12).toString(),
-      };
-
-      console.log("✅ Biometric authentication setup:", {
-        userId,
-        biometricType,
-        biometricId: biometricConfig.biometricId,
-      });
-
-      return biometricConfig;
-    } catch (error) {
-      console.error("❌ Biometric setup failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 2FA (Two-Factor Authentication) 설정
-   * @param {string} userId - 사용자 ID
-   * @param {string} method - 2FA 방법 (sms, email, app)
-   * @returns {Object} 2FA 설정
-   */
-  setup2FA(userId, method = "app") {
-    try {
-      const secret = crypto.lib.WordArray.random(32).toString();
-      const backupCodes = Array.from({ length: 8 }, () =>
-        crypto.lib.WordArray.random(8).toString().substring(0, 8)
-      );
-
-      const twoFactorConfig = {
-        userId,
-        method,
-        secret,
-        backupCodes,
-        enabled: true,
-        setupAt: new Date().toISOString(),
-        qrCode: `otpauth://totp/FamPay:${userId}?secret=${secret}&issuer=FamPay`,
-      };
-
-      console.log("✅ 2FA setup completed:", {
-        userId,
-        method,
-        backupCodesCount: backupCodes.length,
-      });
-
-      return twoFactorConfig;
-    } catch (error) {
-      console.error("❌ 2FA setup failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 세션 무효화 (로그아웃)
-   * @param {string} sessionId - 세션 ID
-   * @returns {Object} 로그아웃 결과
-   */
-  invalidateSession(sessionId) {
-    try {
-      const logoutResult = {
-        sessionId,
-        invalidated: true,
-        logoutAt: new Date().toISOString(),
-      };
-
-      console.log("✅ Session invalidated:", {
-        sessionId,
-        logoutAt: logoutResult.logoutAt,
-      });
-
-      return logoutResult;
-    } catch (error) {
-      console.error("❌ Session invalidation failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 보안 이벤트 로깅
-   * @param {string} userId - 사용자 ID
-   * @param {string} eventType - 이벤트 타입
-   * @param {Object} metadata - 추가 메타데이터
-   * @returns {Object} 로그 엔트리
-   */
-  logSecurityEvent(userId, eventType, metadata = {}) {
-    try {
-      const securityLog = {
-        logId: crypto.lib.WordArray.random(16).toString(),
-        userId,
-        eventType,
-        metadata,
-        timestamp: new Date().toISOString(),
-        severity: this.getEventSeverity(eventType),
-      };
-
-      console.log(`🔒 Security Event [${securityLog.severity}]:`, {
-        userId,
-        eventType,
-        logId: securityLog.logId,
-      });
-
-      return securityLog;
-    } catch (error) {
-      console.error("❌ Security event logging failed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 이벤트 심각도 결정
-   * @param {string} eventType - 이벤트 타입
-   * @returns {string} 심각도 레벨
-   */
-  getEventSeverity(eventType) {
-    const severityMap = {
-      login_success: "info",
-      login_failed: "warning",
-      password_changed: "info",
-      "2fa_enabled": "info",
-      "2fa_disabled": "warning",
-      suspicious_login: "high",
-      account_locked: "high",
-      wallet_connected: "info",
-      wallet_signature_failed: "warning",
-      multiple_failed_attempts: "high",
-    };
-
-    return severityMap[eventType] || "medium";
-  }
+  const value = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+  const multipliers = { s: 1, m: 60, h: 3600, d: 86400, w: 604800 };
+  return value * multipliers[unit] * 1000;
 }
 
-module.exports = AuthService;
+const REFRESH_TTL_MS = parseExpiresIn(REFRESH_TTL);
+
+function hashData(data) {
+  return crypto.createHash('sha256').update(data).digest('hex');
+}
+
+async function ensureUser(email) {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    throw createError(401, '잘못된 이메일 또는 비밀번호입니다.');
+  }
+  return user;
+}
+
+async function generateTokens(user, { userAgent, ipAddress }) {
+  const accessToken = jwt.sign({ sub: user.id, role: user.role }, ACCESS_SECRET, {
+    expiresIn: ACCESS_TTL
+  });
+
+  const refreshToken = crypto.randomBytes(48).toString('hex');
+  const refreshTokenHash = hashData(refreshToken + REFRESH_SECRET);
+  const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
+
+  await prisma.session.create({
+    data: {
+      userId: user.id,
+      refreshToken: refreshTokenHash,
+      userAgent,
+      ipAddress,
+      expiresAt
+    }
+  });
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresAt
+  };
+}
+
+async function registerUser({ email, password, fullName }) {
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    throw createError(409, '이미 사용 중인 이메일입니다.');
+  }
+
+  const passwordHash = password ? await bcrypt.hash(password, 12) : null;
+  const user = await prisma.user.create({
+    data: {
+      email,
+      fullName,
+      passwordHash
+    }
+  });
+
+  return user;
+}
+
+async function loginUser({ email, password, userAgent, ipAddress }) {
+  const user = await ensureUser(email);
+  if (!user.passwordHash) {
+    throw createError(400, '비밀번호 로그인을 지원하지 않습니다.');
+  }
+  const match = await bcrypt.compare(password, user.passwordHash);
+  if (!match) {
+    throw createError(401, '잘못된 이메일 또는 비밀번호입니다.');
+  }
+  const tokens = await generateTokens(user, { userAgent, ipAddress });
+  return { user, ...tokens };
+}
+
+async function refreshSession({ refreshToken, userAgent, ipAddress }) {
+  if (!refreshToken) {
+    throw createError(400, 'refreshToken이 필요합니다.');
+  }
+  const refreshTokenHash = hashData(refreshToken + REFRESH_SECRET);
+  const session = await prisma.session.findFirst({
+    where: {
+      refreshToken: refreshTokenHash,
+      expiresAt: { gt: new Date() }
+    },
+    include: { user: true }
+  });
+
+  if (!session) {
+    throw createError(401, '유효하지 않은 refreshToken입니다.');
+  }
+
+  await prisma.session.delete({ where: { id: session.id } });
+  const tokens = await generateTokens(session.user, { userAgent, ipAddress });
+  return { user: session.user, ...tokens };
+}
+
+async function logoutSession({ refreshToken }) {
+  if (!refreshToken) {
+    return;
+  }
+  const refreshTokenHash = hashData(refreshToken + REFRESH_SECRET);
+  await prisma.session.deleteMany({ where: { refreshToken: refreshTokenHash } });
+}
+
+async function getProfile(userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      walletBackups: true,
+      socialRecoveryConfig: true,
+      multisigConfig: true
+    }
+  });
+  if (!user) {
+    throw createError(404, '사용자를 찾을 수 없습니다.');
+  }
+  return user;
+}
+
+async function changePassword({ userId, currentPassword, newPassword }) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.passwordHash) {
+    throw createError(400, '비밀번호 변경을 지원하지 않습니다.');
+  }
+  const match = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!match) {
+    throw createError(401, '현재 비밀번호가 올바르지 않습니다.');
+  }
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+}
+
+async function connectWallet({ userId, xrplAddress, publicKey, label }) {
+  if (!xrplAddress) {
+    throw createError(400, 'xrplAddress는 필수입니다.');
+  }
+  const wallet = await prisma.wallet.upsert({
+    where: { xrplAddress },
+    update: {
+      ownerUserId: userId,
+      label: label || undefined,
+      publicKey: publicKey || undefined
+    },
+    create: {
+      xrplAddress,
+      publicKey,
+      label,
+      ownerUserId: userId
+    }
+  });
+  if (!wallet.ownerUserId) {
+    await prisma.user.update({ where: { id: userId }, data: { primaryWalletId: wallet.id } });
+  }
+  return wallet;
+}
+
+async function setupTwoFactor({ userId }) {
+  const secret = crypto.randomBytes(20).toString('hex');
+  await prisma.user.update({ where: { id: userId }, data: { twoFactorSecret: secret } });
+  return { secret };
+}
+
+async function setupBiometric({ userId, metadata }) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const currentMeta = user?.biometricMeta && typeof user.biometricMeta === 'object' ? user.biometricMeta : {};
+  await prisma.user.update({ where: { id: userId }, data: { biometricMeta: { ...currentMeta, biometric: metadata } } });
+  return { success: true };
+}
+
+module.exports = {
+  registerUser,
+  loginUser,
+  refreshSession,
+  logoutSession,
+  getProfile,
+  changePassword,
+  connectWallet,
+  setupTwoFactor,
+  setupBiometric
+};

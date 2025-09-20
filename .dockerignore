@@ -1,0 +1,8 @@
+docker-compose.yml
+node_modules
+npm-debug.log
+.env
+.env.*
+.DS_Store
+src/generated/prisma
+reference
