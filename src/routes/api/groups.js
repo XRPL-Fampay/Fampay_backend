@@ -6,7 +6,6 @@ const {
   listMyGroups
 } = require('../../controllers/groupController');
 const transactionsRouter = require('./transactions');
-const distributionRulesRouter = require('./distributionRules');
 
 const router = express.Router();
 
@@ -143,6 +142,5 @@ router.get('/:groupId', fetchGroup);
  */
 router.post('/:groupId/members', addGroupMember);
 router.use('/:groupId/transactions', transactionsRouter);
-router.use('/:groupId/distribution-rules', distributionRulesRouter);
 
 module.exports = router;

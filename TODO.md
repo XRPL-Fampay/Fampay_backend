@@ -122,18 +122,18 @@
 
 ### ✅ 공통 작업
 
-- [x] **백엔드 기본 설정 및 프로젝트 구조 설계** `[완료]`
+- [ ] **백엔드 기본 설정 및 프로젝트 구조 설계** `[진행중]`
   - Express.js 기반 구조 개선
-  - 환경 설정 파일 구성 (.env 로더, Helmet, Rate Limiting)
-  - 폴더 구조 정리 및 `/src` 레이어 도입
-- [x] **데이터베이스 스키마 설계**
-  - 사용자(Users) + Sessions + WalletBackups + SocialRecovery + Multisig
-  - 가족그룹(FamilyGroups) 및 PermissionedDomains/ApprovedGateways
-  - 거래내역(Transactions), CashoutRequests/Receipts
-  - Prisma 마이그레이션 적용 (`npm run prisma:deploy`)
-- [x] **RESTful API 설계 및 문서화 (Swagger/OpenAPI)**
-  - `/api/auth`, `/api/keys`, `/api/cashout`, `/api/trustset`, `/api/groups` 등 26개 엔드포인트 문서화
-  - Swagger UI(`/docs`) 배포 + 예시 응답 정의
+  - 환경 설정 파일 구성
+  - 폴더 구조 정리
+- [ ] **데이터베이스 스키마 설계**
+  - 사용자(Users) 테이블
+  - 가족그룹(FamilyGroups) 테이블
+  - 거래내역(Transactions) 테이블
+  - 지갑(Wallets) 테이블
+- [ ] **RESTful API 설계 및 문서화 (Swagger/OpenAPI)**
+  - API 엔드포인트 정의
+  - 요청/응답 스키마 문서화
 
 ---
 
@@ -143,12 +143,13 @@
 
 - [ ] **XRPL 코어 통합 - Payment/Batch/Escrow 기능 구현**
   - XRPL 라이브러리 연동
-  - [x] Payment/Batch/Escrow 실행 API(`/api/xrpl/*`) 구현 및 Testnet seed 연동 준비
-  - [ ] Devnet 실거래 검증 및 Escrow 자동 지급 시나리오 마무리
+  - Payment 트랜잭션 생성/전송
+  - Batch 결제 처리
+  - Escrow 자동 지급 시스템
 - [ ] **그룹 지갑 관리 모듈 - 분배 규칙 저장 및 라우팅**
   - 가족 구성원별 지갑 생룹
-  - 송금 분배 규칙 엔진 `[진행중]` (`/api/groups/:id/distribution-rules` 구현 완료)
-  - 자동 분배 로직 `[진행중]`
+  - 송금 분배 규칙 엔진
+  - 자동 분배 로직
 - [ ] **알림 시스템 - 거래 알림, 승인 요청 등**
   - 실시간 알림 (WebSocket/SSE)
   - 이메일/SMS 알림 연동
@@ -156,12 +157,16 @@
 
 ### 👩‍💻 개발자 2 담당
 
-- [x] **키 관리 시스템 - 니모닉/멀티시그/소셜 리커버리 구현**
-  - `keyManagementService` + `/api/keys/*` 엔드포인트 구현
-  - 니모닉 생성/복구, 멀티시그, 소셜 리커버리, 하이브리드 커스터디, 백업
-- [x] **인증 시스템 - JWT 토큰 관리 및 보안 미들웨어**
-  - `authService` + `/api/auth/*` 엔드포인트 구현
-  - JWT 기반 인증/세션, 2FA 시크릿, 생체인증 메타 저장, Helmet/Rate Limit 적용
+- [ ] **키 관리 시스템 - 니모닉/멀티시그/소셜 리커버리 구현**
+  - 니모닉 생성 및 관리
+  - 멀티시그 지갑 구현 (2/3 승인)
+  - 소셜 리커버리 메커니즘
+  - 하이브리드 커스터디 옵션
+- [ ] **인증 시스템 - JWT 토큰 관리 및 보안 미들웨어**
+  - JWT 기반 인증/인가
+  - 생체인증 연동 준비
+  - 보안 미들웨어 구현
+  - 세션 관리
 
 ---
 
@@ -169,17 +174,19 @@
 
 ### 👩‍💻 개발자 2 담당
 
-- [x] **현금화 게이트웨이 연동 - PermissionedDomains 기반 안전 출금**
-  - PermissionedDomains/Cashout 엔드포인트 완성(`/api/cashout/*`)
-  - 허가된 게이트웨이 등록, 현금화 요청/처리/영수증, 은행/모바일머니 흐름 기초 구현
+- [ ] **현금화 게이트웨이 연동 - PermissionedDomains 기반 안전 출금**
+  - PermissionedDomains 구현
+  - 허가된 게이트웨이 관리
+  - 현금화 영수증 시스템
+  - 은행/모바일머니 API 연동
 
 ### ✅ 공통 작업
 
-- [x] **테스트 환경 구축 및 단위 테스트 작성**
+- [ ] **테스트 환경 구축 및 단위 테스트 작성**
   - Jest/Mocha 테스트 프레임워크 설정
-  - API 테스트 작성 (`transactions`, `wallets`, `permissionedDomains`, `trustset` 등)
-  - XRPL 클라이언트 모킹을 통한 회귀 테스트
-- [x] **배포 환경 설정 (Docker, CI/CD 파이프라인)**
+  - API 테스트 작성
+  - XRPL 테스트넷 연동
+- [ ] **배포 환경 설정 (Docker, CI/CD 파이프라인)**
   - Docker 컨테이너화
   - GitHub Actions CI/CD
   - 환경별 배포 설정

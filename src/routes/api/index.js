@@ -5,8 +5,6 @@ const groupsRouter = require('./groups');
 const authRouter = require('./auth');
 const keysRouter = require('./keys');
 const cashoutRouter = require('./cashout');
-const trustsetRouter = require('./trustset');
-const xrplRouter = require('./xrpl');
 
 const router = express.Router();
 
@@ -16,8 +14,6 @@ router.use('/auth', authRouter);
 router.use('/keys', keysRouter);
 router.use('/groups', groupsRouter);
 router.use('/cashout', cashoutRouter);
-router.use('/trustset', trustsetRouter);
-router.use('/xrpl', xrplRouter);
 
 router.get('/', (req, res) => {
   res.json({
@@ -29,9 +25,7 @@ router.get('/', (req, res) => {
       keys: '/api/keys',
       groups: '/api/groups',
       groupTransactions: '/api/groups/:groupId/transactions',
-      cashout: '/api/cashout',
-      trustset: '/api/trustset',
-      xrpl: '/api/xrpl'
+      cashout: '/api/groups/:groupId/cashout'
     }
   });
 });

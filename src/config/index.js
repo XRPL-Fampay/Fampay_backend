@@ -16,9 +16,7 @@ const config = {
   },
   xrpl: {
     network: process.env.XRPL_NETWORK || 'testnet',
-    endpoint: process.env.XRPL_ENDPOINT || 'wss://s.altnet.rippletest.net:51233',
-    batchSeed: process.env.XRPL_BATCH_SEED || '',
-    issuerSeed: process.env.XRPL_ISSUER_SEED || ''
+    endpoint: process.env.XRPL_ENDPOINT || 'wss://s.altnet.rippletest.net:51233'
   },
   auth: {
     accessTokenSecret: process.env.ACCESS_TOKEN_SECRET || 'dev-access-secret',

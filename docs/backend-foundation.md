@@ -155,10 +155,6 @@
 - XRPL 트랜잭션 실행 래퍼와 PermissionedDomains API를 추가해 결제/에스크로 처리와 게이트웨이 화이트리스트 관리를 지원합니다.
 - Jest + Supertest 테스트 스위트(`tests/`)로 헬스/지갑/트랜잭션/PermissionedDomains 흐름을 검증했으며 `npx prisma validate`로 스키마 유효성을 확인했습니다.
 - 인증/키 관리/현금화 서비스(`src/services/authService.js`, `keyManagementService.js`, `cashoutGatewayService.js`)와 대응 컨트롤러·라우터(`/api/auth`, `/api/keys`, `/api/cashout`)를 구현해 INREADME에 기재된 26개 API 엔드포인트를 제공하고 있습니다.
-- TrustSet 전용 서비스(`src/services/xrpl/trustSetService.js`)와 `/api/trustset` 라우터를 추가하여 사용자·발행자 TrustLine 설정/승인 API를 노출했습니다.
-- 그룹 분배 규칙 서비스(`/api/groups/{groupId}/distribution-rules`)를 도입해 Batch 결제 시 사전 정의된 분배 비율로 XRPL 지불을 자동 구성하며 규칙은 Prisma DB에 영구 저장됩니다.
-- XRPL Testnet 연동을 위해 `XRPL_BATCH_SEED`와 `XRPL_ISSUER_SEED` 환경 변수를 추가로 사용하며, 분배 규칙 기반 배치 실행 시 기본 seed를 활용해 여러 결제를 순차 실행합니다.
-- `/api/xrpl` 하위에 Payment/Batch/Escrow 전용 엔드포인트를 제공하여 개발자 1의 XRPL 코어 기능을 직접 호출하고 검증할 수 있습니다.
 
 ### 다음 작업 제안
 1. Transaction/Plan API에 실제 XRPL 트랜잭션 연동을 추가하고 `/docs` 문서에 샘플 응답을 보강.

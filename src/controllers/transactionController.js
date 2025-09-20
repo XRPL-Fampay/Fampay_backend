@@ -6,8 +6,6 @@ const {
 const { createRecurringPlan, updateRecurringPlan, listPlans } = require('../services/recurringPlanService');
 const { executeXRPLTransaction } = require('../services/xrpl/transactionExecutor');
 const createError = require('http-errors');
-const distributionRuleService = require('../services/distributionRuleService');
-const config = require('../config');
 
 async function createGroupTransaction(req, res, next) {
   try {
@@ -20,7 +18,6 @@ async function createGroupTransaction(req, res, next) {
       destinationWalletId,
       memo,
       recurringPlanId,
-      distributionRuleId,
       xrpl: xrplPayload
     } = req.body || {};
 
@@ -37,34 +34,23 @@ async function createGroupTransaction(req, res, next) {
 
     if (xrplPayload?.execute) {
       try {
-        const xrplPayloadData = {
-          seed: xrplPayload.seed || config.xrpl.batchSeed,
-          destination: xrplPayload.destination,
-          amountDrops: xrplPayload.amountDrops ?? amountDrops,
-          amountXrp: xrplPayload.amountXrp,
-          currency,
-          issuer: xrplPayload.issuer,
-          memo,
-          finishAfter: xrplPayload.finishAfter,
-          cancelAfter: xrplPayload.cancelAfter,
-          condition: xrplPayload.condition,
-          fulfillment: xrplPayload.fulfillment,
-          owner: xrplPayload.owner,
-          offerSequence: xrplPayload.offerSequence,
-          instructions: xrplPayload.instructions
-        };
-
-        if (!xrplPayloadData.instructions && distributionRuleId) {
-          xrplPayloadData.instructions = await buildInstructionsFromRule({
-            distributionRuleId,
-            totalAmountDrops: xrplPayloadData.amountDrops,
-            memo
-          });
-        }
-
         const xrplResult = await executeXRPLTransaction({
           type,
-          payload: xrplPayloadData
+          payload: {
+            seed: xrplPayload.seed,
+            destination: xrplPayload.destination,
+            amountDrops: xrplPayload.amountDrops || amountDrops,
+            amountXrp: xrplPayload.amountXrp,
+            currency,
+            issuer: xrplPayload.issuer,
+            memo,
+            finishAfter: xrplPayload.finishAfter,
+            cancelAfter: xrplPayload.cancelAfter,
+            condition: xrplPayload.condition,
+            fulfillment: xrplPayload.fulfillment,
+            owner: xrplPayload.owner,
+            offerSequence: xrplPayload.offerSequence
+          }
         });
 
         transaction = await updateTransactionStatus(
@@ -86,41 +72,6 @@ async function createGroupTransaction(req, res, next) {
   } catch (error) {
     next(error);
   }
-}
-
-async function buildInstructionsFromRule({ distributionRuleId, totalAmountDrops, memo }) {
-  const rule = await distributionRuleService.getRule(distributionRuleId);
-  if (!rule.isActive) {
-    throw createError(400, '비활성화된 분배 규칙입니다.');
-  }
-
-  const total = Number(totalAmountDrops);
-  if (!Number.isFinite(total) || total <= 0) {
-    throw createError(400, '분배를 위한 amountDrops가 필요합니다.');
-  }
-
-  const defaultSeed = config.xrpl.batchSeed;
-  if (!defaultSeed) {
-    throw createError(400, '분배 규칙을 사용하려면 XRPL_BATCH_SEED 환경 변수가 필요합니다.');
-  }
-
-  const instructions = rule.splits.map((split) => {
-    const percentage = Number(split.percentage ?? 0);
-    if (!split.xrplAddress && !split.destination) {
-      throw createError(400, 'split 항목에 xrplAddress가 필요합니다.');
-    }
-    const drops = Math.floor((total * percentage) / 100);
-    return {
-      seed: split.seed || defaultSeed,
-      destination: split.xrplAddress || split.destination,
-      amountDrops: split.amountDrops || drops.toString(),
-      currency: split.currency,
-      issuer: split.issuer,
-      memo: split.memo || memo
-    };
-  });
-
-  return instructions;
 }
 
 async function updateGroupTransaction(req, res, next) {
