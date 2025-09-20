@@ -113,6 +113,7 @@ model Group {
   permissionedDomains PermissionedDomain[]
   cashoutRequests     CashoutRequest[]
   approvedGateways    ApprovedGateway[]
+  distributionRules   DistributionRule[]
   createdAt           DateTime            @default(now())
 }
 
@@ -265,4 +266,16 @@ model ApprovedGateway {
 
   group       Group    @relation(fields: [groupId], references: [id])
   @@unique([groupId, provider, domain])
+}
+
+model DistributionRule {
+  id        String   @id @default(uuid())
+  groupId   String
+  name      String
+  splits    Json
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group     Group    @relation(fields: [groupId], references: [id])
 }

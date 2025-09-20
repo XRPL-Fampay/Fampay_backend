@@ -38,7 +38,8 @@ async function createTransaction({
   destinationWalletId,
   memo,
   status = 'PENDING',
-  recurringPlanId
+  recurringPlanId,
+  distributionRuleId
 }) {
   if (!groupId || !type || !amountDrops) {
     throw createError(400, 'groupId, type, amountDrops는 필수입니다.');
@@ -67,6 +68,7 @@ async function createTransaction({
         memo,
         status,
         recurringPlanId,
+        distributionRuleId,
         submittedAt: new Date()
       },
       include: buildTransactionInclude()

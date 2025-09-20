@@ -1,12 +1,5 @@
 jest.mock('../src/services/xrpl/transactionExecutor', () => ({
-  executeXRPLTransaction: jest.fn(async () => ({
-    hash: 'ABC123',
-    type: 'Payment',
-    raw: {},
-    account: 'rSource',
-    destination: 'rDest',
-    amount: '1000'
-  }))
+  executeXRPLTransaction: jest.fn()
 }));
 
 const request = require('supertest');
@@ -53,10 +46,21 @@ const prismaMock = {
 
 describe('Transactions API', () => {
   let app;
+  let transactionExecutor;
 
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
+    process.env.XRPL_BATCH_SEED = 'sTestSeed';
+    transactionExecutor = require('../src/services/xrpl/transactionExecutor');
+    transactionExecutor.executeXRPLTransaction.mockResolvedValue({
+      hash: 'ABC123',
+      type: 'Payment',
+      raw: {},
+      account: 'rSource',
+      destination: 'rDest',
+      amount: '1000'
+    });
     jest.doMock('../src/db/prisma', () => ({ prisma: prismaMock }));
     app = require('../src/app');
   });
@@ -80,6 +84,42 @@ describe('Transactions API', () => {
       where: { id: 'tx-1' }
     }));
     expect(response.body.xrpl.hash).toBe('ABC123');
+  });
+
+  it('creates batch transaction with xrpl instructions', async () => {
+    transactionExecutor.executeXRPLTransaction.mockResolvedValueOnce({
+      type: 'Batch',
+      count: 2,
+      results: [
+        { hash: 'HASH1', destination: 'rDest1', amount: '500' },
+        { hash: 'HASH2', destination: 'rDest2', amount: '500' }
+      ]
+    });
+
+    const response = await request(app)
+      .post('/api/groups/group-1/transactions')
+      .send({
+        type: 'BATCH',
+        amountDrops: '1000',
+        xrpl: {
+          execute: true,
+          instructions: [
+            { seed: 's████', destination: 'rDest1', amountDrops: '500' },
+            { seed: 's████', destination: 'rDest2', amountDrops: '500' }
+          ]
+        }
+      });
+
+    expect(response.status).toBe(201);
+    expect(transactionExecutor.executeXRPLTransaction).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'BATCH',
+      payload: expect.objectContaining({
+        instructions: expect.arrayContaining([
+          expect.objectContaining({ seed: expect.any(String) })
+        ])
+      })
+    }));
+    expect(response.body.xrpl.count).toBe(2);
   });
 
   it('lists transactions for group', async () => {

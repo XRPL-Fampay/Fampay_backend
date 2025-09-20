@@ -1,6 +1,7 @@
 const createError = require('http-errors');
 const xrpl = require('xrpl');
 const { getClient } = require('../xrplClient');
+const config = require('../../config');
 
 function encodeMemo(memo) {
   if (!memo) return undefined;
@@ -18,15 +19,29 @@ function resolveAmount({ currency = 'XRP', amountDrops, amountXrp, issuer }) {
     throw createError(400, 'XRP 결제에는 amountDrops 또는 amountXrp가 필요합니다.');
   }
 
-  if (!issuer) {
+  const resolvedIssuer = issuer || getDefaultIssuerAddress();
+  if (!resolvedIssuer) {
     throw createError(400, 'IOU 전송에는 issuer가 필요합니다.');
   }
 
   return {
     currency,
-    issuer,
+    issuer: resolvedIssuer,
     value: amountXrp || amountDrops
   };
+}
+
+let cachedIssuerAddress;
+function getDefaultIssuerAddress() {
+  if (cachedIssuerAddress) {
+    return cachedIssuerAddress;
+  }
+  if (!config.xrpl.issuerSeed) {
+    return undefined;
+  }
+  const wallet = xrpl.Wallet.fromSeed(config.xrpl.issuerSeed.trim());
+  cachedIssuerAddress = wallet.address;
+  return cachedIssuerAddress;
 }
 
 async function submitPayment({
@@ -80,6 +95,45 @@ function toRippleTime(value) {
     throw createError(400, 'finishAfter/cancelAfter는 ISO 문자열 또는 epoch 초여야 합니다.');
   }
   return xrpl.isoTimeToRippleTime(date.toISOString());
+}
+
+async function submitBatch({ seed, instructions, memo }) {
+  if (!Array.isArray(instructions) || instructions.length === 0) {
+    throw createError(400, 'instructions 배열이 필요합니다.');
+  }
+
+  const defaultSeed = seed || config.xrpl.batchSeed;
+  if (!defaultSeed) {
+    throw createError(400, 'batch 트랜잭션에는 기본 seed가 필요합니다.');
+  }
+
+  const results = [];
+
+  for (const instruction of instructions) {
+    const paymentSeed = instruction.seed || defaultSeed;
+    const destination = instruction.destination || instruction.xrplAddress;
+    if (!destination) {
+      throw createError(400, 'instruction에 destination이 필요합니다.');
+    }
+
+    const paymentPayload = {
+      seed: paymentSeed,
+      destination,
+      amountDrops: instruction.amountDrops,
+      amountXrp: instruction.amountXrp,
+      currency: instruction.currency || 'XRP',
+      issuer: instruction.issuer,
+      memo: instruction.memo || memo
+    };
+
+    results.push(await submitPayment(paymentPayload));
+  }
+
+  return {
+    type: 'Batch',
+    count: results.length,
+    results
+  };
 }
 
 async function createEscrow({
@@ -193,8 +247,9 @@ async function executeXRPLTransaction({ type, payload }) {
   switch (type) {
     case 'CONTRIBUTION':
     case 'PAYOUT':
-    case 'BATCH':
       return submitPayment(payload);
+    case 'BATCH':
+      return submitBatch(payload);
     case 'ESCROW_CREATE':
       return createEscrow(payload);
     case 'ESCROW_FINISH':
@@ -208,6 +263,7 @@ async function executeXRPLTransaction({ type, payload }) {
 
 module.exports = {
   submitPayment,
+  submitBatch,
   createEscrow,
   finishEscrow,
   cancelEscrow,
