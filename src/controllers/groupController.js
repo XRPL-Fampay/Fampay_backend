@@ -5,11 +5,20 @@ const {
   addMember,
   listGroupsForUser
 } = require('../services/groupService');
+const {
+  bootstrapGroupWallet: bootstrapGroupWalletService
+} = require('../services/groupWalletBootstrapService');
 
 async function createGroup(req, res, next) {
   try {
-    const { hostUserId, title, description, wallet } = req.body || {};
-    const group = await createGroupService({ hostUserId, title, description, wallet });
+    const { hostUserId, title, description, wallet, memberAddresses } = req.body || {};
+    const group = await createGroupService({ 
+      hostUserId, 
+      title, 
+      description, 
+      wallet, 
+      memberAddresses 
+    });
     res.status(201).json(group);
   } catch (error) {
     next(error);
@@ -56,9 +65,36 @@ async function listMyGroups(req, res, next) {
   }
 }
 
+async function bootstrapGroupWallet(req, res, next) {
+  try {
+    const { groupId } = req.params;
+    const {
+      credentialType,
+      credentialTtlSeconds,
+      trustlineCurrency,
+      trustlineLimit,
+      trustlineIssuer
+    } = req.body || {};
+
+    const result = await bootstrapGroupWalletService({
+      groupId,
+      credentialType,
+      credentialTtlSeconds,
+      trustlineCurrency,
+      trustlineLimit,
+      trustlineIssuer
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createGroup,
   fetchGroup,
   addGroupMember,
-  listMyGroups
+  listMyGroups,
+  bootstrapGroupWallet
 };
