@@ -64,10 +64,23 @@ model User {
   wallets          Wallet[]         @relation("UserWallets")
   ownedGroups      Group[]          @relation("HostGroups")
   groupMemberships GroupMember[]
+  passwordHash     String?
+  twoFactorSecret  String?
+  biometricMeta    Json?
+  role             UserRole         @default(MEMBER)
+  sessions         Session[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   recurringPlans   RecurringPlan[]  @relation("UserRecurringPlans")
   permissionedDomains PermissionedDomain[] @relation("UserPermissionedDomains")
+  walletBackups    WalletBackup[]
+  socialRecoveryConfig SocialRecoveryConfig?
+  multisigConfig   MultisigConfig?
+}
+
+enum UserRole {
+  MEMBER
+  ADMIN
 }
 
 model Wallet {
@@ -99,6 +112,7 @@ model Group {
   transactions        Transaction[]
   permissionedDomains PermissionedDomain[]
   cashoutRequests     CashoutRequest[]
+  approvedGateways    ApprovedGateway[]
   createdAt           DateTime            @default(now())
 }
 
@@ -165,6 +179,7 @@ model PermissionedDomain {
   label        String?
   createdById  String
   verifiedAt   DateTime?
+  createdAt    DateTime          @default(now())
 
   group        Group             @relation(fields: [groupId], references: [id])
   createdBy    User              @relation("UserPermissionedDomains", fields: [createdById], references: [id])
@@ -182,8 +197,72 @@ model CashoutRequest {
   status                CashoutStatus  @default(PENDING)
   createdAt             DateTime       @default(now())
   resolvedAt            DateTime?
+  receipt               CashoutReceipt?
 
   group                 Group          @relation(fields: [groupId], references: [id])
   member                GroupMember    @relation(fields: [memberId], references: [id])
   targetDomain          PermissionedDomain @relation(fields: [targetDomainId], references: [id])
+}
+
+model CashoutReceipt {
+  id          String         @id @default(uuid())
+  requestId   String         @unique
+  hash        String         @unique
+  issuedAt    DateTime       @default(now())
+
+  request     CashoutRequest @relation(fields: [requestId], references: [id])
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  userId      String
+  refreshToken String  @unique
+  userAgent   String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model WalletBackup {
+  id           String   @id @default(uuid())
+  userId       String
+  encryptedData String
+  label        String?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model SocialRecoveryConfig {
+  id         String  @id @default(uuid())
+  userId     String  @unique
+  guardians  Json
+  threshold  Int
+  createdAt  DateTime @default(now())
+
+  user       User    @relation(fields: [userId], references: [id])
+}
+
+model MultisigConfig {
+  id          String  @id @default(uuid())
+  userId      String  @unique
+  signers     Json
+  quorum      Int
+  createdAt   DateTime @default(now())
+
+  user        User    @relation(fields: [userId], references: [id])
+}
+
+model ApprovedGateway {
+  id          String   @id @default(uuid())
+  groupId     String
+  provider    String
+  domain      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  group       Group    @relation(fields: [groupId], references: [id])
+  @@unique([groupId, provider, domain])
 }

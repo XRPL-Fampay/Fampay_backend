@@ -154,6 +154,7 @@
 - Swagger 기반 문서를 `/docs` 경로에서 제공하며, 주요 라우터에 OpenAPI 주석과 예시 응답을 추가했습니다.
 - XRPL 트랜잭션 실행 래퍼와 PermissionedDomains API를 추가해 결제/에스크로 처리와 게이트웨이 화이트리스트 관리를 지원합니다.
 - Jest + Supertest 테스트 스위트(`tests/`)로 헬스/지갑/트랜잭션/PermissionedDomains 흐름을 검증했으며 `npx prisma validate`로 스키마 유효성을 확인했습니다.
+- 인증/키 관리/현금화 서비스(`src/services/authService.js`, `keyManagementService.js`, `cashoutGatewayService.js`)와 대응 컨트롤러·라우터(`/api/auth`, `/api/keys`, `/api/cashout`)를 구현해 INREADME에 기재된 26개 API 엔드포인트를 제공하고 있습니다.
 
 ### 다음 작업 제안
 1. Transaction/Plan API에 실제 XRPL 트랜잭션 연동을 추가하고 `/docs` 문서에 샘플 응답을 보강.

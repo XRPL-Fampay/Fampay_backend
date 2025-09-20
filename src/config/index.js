@@ -17,6 +17,15 @@ const config = {
   xrpl: {
     network: process.env.XRPL_NETWORK || 'testnet',
     endpoint: process.env.XRPL_ENDPOINT || 'wss://s.altnet.rippletest.net:51233'
+  },
+  auth: {
+    accessTokenSecret: process.env.ACCESS_TOKEN_SECRET || 'dev-access-secret',
+    refreshTokenSecret: process.env.REFRESH_TOKEN_SECRET || 'dev-refresh-secret',
+    accessTokenTtl: process.env.ACCESS_TOKEN_TTL || '15m',
+    refreshTokenTtl: process.env.REFRESH_TOKEN_TTL || '7d'
+  },
+  security: {
+    encryptionKey: process.env.ENCRYPTION_KEY || 'dev-encryption-key'
   }
 };
 

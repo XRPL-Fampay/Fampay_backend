@@ -1,6 +1,6 @@
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 
-const mockGroup = { id: 'group-1' };
 const mockDomain = {
   id: 'domain-1',
   groupId: 'group-1',
@@ -10,40 +10,45 @@ const mockDomain = {
 };
 
 const prismaMock = {
-  group: {
-    findUnique: jest.fn(async () => mockGroup)
-  },
   permissionedDomain: {
-    create: jest.fn(async () => mockDomain),
+    upsert: jest.fn(async () => mockDomain),
     findMany: jest.fn(async () => [mockDomain]),
     update: jest.fn(async () => ({ ...mockDomain, verifiedAt: new Date().toISOString() })),
     delete: jest.fn(async () => mockDomain)
+  },
+  approvedGateway: {
+    upsert: jest.fn()
   }
 };
 
 describe('Permissioned Domains API', () => {
   let app;
+  let adminToken;
 
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
     jest.doMock('../src/db/prisma', () => ({ prisma: prismaMock }));
     app = require('../src/app');
+    adminToken = jwt.sign({ sub: 'admin-user', role: 'ADMIN' }, 'dev-access-secret');
   });
 
   it('creates permissioned domain', async () => {
     const response = await request(app)
-      .post('/api/groups/group-1/permissioned-domains')
-      .send({ domain: 'gateway.example' });
+      .post('/api/cashout/setup-domains')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ groupId: 'group-1', domain: 'gateway.example' });
 
     expect(response.status).toBe(201);
-    expect(prismaMock.permissionedDomain.create).toHaveBeenCalled();
+    expect(prismaMock.permissionedDomain.upsert).toHaveBeenCalled();
     expect(response.body.domain).toBe('gateway.example');
   });
 
   it('lists permissioned domains', async () => {
     const response = await request(app)
-      .get('/api/groups/group-1/permissioned-domains');
+      .get('/api/cashout/domains')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .query({ groupId: 'group-1' });
 
     expect(response.status).toBe(200);
     expect(prismaMock.permissionedDomain.findMany).toHaveBeenCalled();
@@ -52,8 +57,9 @@ describe('Permissioned Domains API', () => {
 
   it('verifies permissioned domain', async () => {
     const response = await request(app)
-      .patch('/api/groups/group-1/permissioned-domains/domain-1/verify')
-      .send({ verified: true });
+      .patch('/api/cashout/domains/domain-1/verify')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ groupId: 'group-1', verified: true });
 
     expect(response.status).toBe(200);
     expect(prismaMock.permissionedDomain.update).toHaveBeenCalledWith(expect.objectContaining({
@@ -63,7 +69,8 @@ describe('Permissioned Domains API', () => {
 
   it('deletes permissioned domain', async () => {
     const response = await request(app)
-      .delete('/api/groups/group-1/permissioned-domains/domain-1');
+      .delete('/api/cashout/domains/domain-1')
+      .set('Authorization', `Bearer ${adminToken}`);
 
     expect(response.status).toBe(200);
     expect(prismaMock.permissionedDomain.delete).toHaveBeenCalledWith({ where: { id: 'domain-1' } });

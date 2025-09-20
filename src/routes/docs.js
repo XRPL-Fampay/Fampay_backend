@@ -15,6 +15,13 @@ const swaggerDefinition = {
     }
   ],
   components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT'
+      }
+    },
     schemas: {
       Wallet: {
         type: 'object',
