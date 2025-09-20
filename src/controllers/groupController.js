@@ -11,8 +11,14 @@ const {
 
 async function createGroup(req, res, next) {
   try {
-    const { hostUserId, title, description, wallet } = req.body || {};
-    const group = await createGroupService({ hostUserId, title, description, wallet });
+    const { hostUserId, title, description, wallet, memberAddresses } = req.body || {};
+    const group = await createGroupService({ 
+      hostUserId, 
+      title, 
+      description, 
+      wallet, 
+      memberAddresses 
+    });
     res.status(201).json(group);
   } catch (error) {
     next(error);

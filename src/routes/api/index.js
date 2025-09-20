@@ -5,6 +5,7 @@ const groupsRouter = require('./groups');
 const authRouter = require('./auth');
 const keysRouter = require('./keys');
 const cashoutRouter = require('./cashout');
+const testRouter = require('./test');
 
 const router = express.Router();
 
@@ -14,6 +15,7 @@ router.use('/auth', authRouter);
 router.use('/keys', keysRouter);
 router.use('/groups', groupsRouter);
 router.use('/cashout', cashoutRouter);
+router.use('/test', testRouter);
 
 router.get('/', (req, res) => {
   res.json({

@@ -76,6 +76,8 @@ model User {
   walletBackups    WalletBackup[]
   socialRecoveryConfig SocialRecoveryConfig?
   multisigConfig   MultisigConfig?
+  proposedTransactions MultiSigProposal[] @relation("ProposedTransactions")
+  signedTransactions MultiSigSignature[] @relation("SignedTransactions")
 }
 
 enum UserRole {
@@ -113,6 +115,7 @@ model Group {
   permissionedDomains PermissionedDomain[]
   cashoutRequests     CashoutRequest[]
   approvedGateways    ApprovedGateway[]
+  multiSigProposals   MultiSigProposal[]
   createdAt           DateTime            @default(now())
 }
 
@@ -265,4 +268,45 @@ model ApprovedGateway {
 
   group       Group    @relation(fields: [groupId], references: [id])
   @@unique([groupId, provider, domain])
+}
+
+enum MultiSigProposalStatus {
+  PENDING
+  READY_TO_EXECUTE
+  EXECUTED
+  FAILED
+  CANCELLED
+}
+
+model MultiSigProposal {
+  id                  String                 @id @default(cuid())
+  groupId             String
+  proposedById        String
+  transactionData     String                 // JSON serialized transaction
+  description         String?
+  status              MultiSigProposalStatus @default(PENDING)
+  requiredSignatures  Int
+  createdAt           DateTime               @default(now())
+  expiresAt           DateTime
+  executedAt          DateTime?
+  transactionHash     String?
+  errorMessage        String?
+
+  group               Group                  @relation(fields: [groupId], references: [id])
+  proposedBy          User                   @relation("ProposedTransactions", fields: [proposedById], references: [id])
+  signatures          MultiSigSignature[]
+}
+
+model MultiSigSignature {
+  id              String           @id @default(cuid())
+  proposalId      String
+  signerId        String
+  signature       String           // Signed transaction blob
+  signerAddress   String
+  createdAt       DateTime         @default(now())
+
+  proposal        MultiSigProposal @relation(fields: [proposalId], references: [id])
+  signer          User             @relation("SignedTransactions", fields: [signerId], references: [id])
+
+  @@unique([proposalId, signerId])
 }

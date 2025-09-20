@@ -17,6 +17,7 @@ const config = {
   xrpl: {
     network: process.env.XRPL_NETWORK || 'testnet',
     endpoint: process.env.XRPL_ENDPOINT || 'wss://s.altnet.rippletest.net:51233',
+    server: process.env.XRPL_SERVER || 'wss://s.devnet.rippletest.net:51233',
     rlusdIssuer: process.env.XRPL_RLUSD_ISSUER || '',
     rlusdCurrency: process.env.XRPL_RLUSD_CURRENCY || 'RLUSD'
   },

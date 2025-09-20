@@ -7,6 +7,8 @@ const {
   bootstrapGroupWallet
 } = require('../../controllers/groupController');
 const transactionsRouter = require('./transactions');
+const credentialsRouter = require('./credentials');
+const multiSignatureRouter = require('./multiSignature');
 
 const router = express.Router();
 
@@ -70,6 +72,11 @@ router.get('/', listMyGroups);
  *                   label:
  *                     type: string
  *                 description: 미제공 시 서버에서 새로운 그룹 지갑을 생성합니다.
+ *               memberAddresses:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: 그룹 멤버들의 XRPL 주소 목록 (credential 발급용)
  *     responses:
  *       '201':
  *         description: 생성된 그룹 정보
@@ -219,5 +226,7 @@ router.post('/:groupId/members', addGroupMember);
  */
 router.post('/:groupId/wallet/bootstrap', bootstrapGroupWallet);
 router.use('/:groupId/transactions', transactionsRouter);
+router.use('/:groupId/credentials', credentialsRouter);
+router.use('/:groupId/multisig', multiSignatureRouter);
 
 module.exports = router;
