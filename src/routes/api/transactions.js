@@ -7,8 +7,13 @@ const {
   updatePlan,
   listGroupPlans
 } = require('../../controllers/transactionController');
+const { authenticate } = require('../../middleware/authMiddleware');
+const { verifyGroupMembership } = require('../../middleware/credentialVerification');
 
 const router = express.Router({ mergeParams: true });
+
+router.use(authenticate);
+router.use(verifyGroupMembership());
 
 /**
  * @openapi
@@ -17,6 +22,8 @@ const router = express.Router({ mergeParams: true });
  *     summary: 그룹 트랜잭션 목록 조회
  *     tags:
  *       - Transactions
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: groupId
  *         in: path
@@ -50,6 +57,8 @@ router.get('/', listTransactions);
  *     summary: 그룹 트랜잭션 생성 (Payment/Batch/Escrow 메타 저장)
  *     tags:
  *       - Transactions
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: groupId
  *         in: path
@@ -132,6 +141,8 @@ router.post('/', createGroupTransaction);
  *     summary: 트랜잭션 상태 업데이트 (확정, 실패 등)
  *     tags:
  *       - Transactions
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: groupId
  *         in: path
@@ -177,6 +188,8 @@ router.patch('/:transactionId', updateGroupTransaction);
  *     summary: 정기 납부/지급 계획 목록
  *     tags:
  *       - Recurring Plans
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: groupId
  *         in: path
@@ -202,6 +215,8 @@ router.get('/plans/list', listGroupPlans);
  *     summary: 정기 납부/지급 계획 생성
  *     tags:
  *       - Recurring Plans
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: groupId
  *         in: path
@@ -215,13 +230,10 @@ router.get('/plans/list', listGroupPlans);
  *           schema:
  *             type: object
  *             required:
- *               - createdById
  *               - type
  *               - amountDrops
  *               - scheduleCron
  *             properties:
- *               createdById:
- *                 type: string
  *               type:
  *                 type: string
  *                 enum: [CONTRIBUTION, PAYOUT]
@@ -255,6 +267,8 @@ router.post('/plans', createPlan);
  *     summary: 정기 계획 상태/메타 업데이트
  *     tags:
  *       - Recurring Plans
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: groupId
  *         in: path

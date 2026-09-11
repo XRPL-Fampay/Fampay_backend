@@ -10,8 +10,11 @@ const {
   verifyGroupMembership,
   verifyGroupAdmin
 } = require('../../middleware/credentialVerification');
+const { authenticate } = require('../../middleware/authMiddleware');
 
 const router = express.Router({ mergeParams: true });
+
+router.use(authenticate);
 
 /**
  * @openapi
@@ -20,6 +23,8 @@ const router = express.Router({ mergeParams: true });
  *     summary: 그룹의 다중 서명 제안 목록 조회
  *     tags:
  *       - Multi-Signature
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: groupId
  *         in: path
@@ -44,6 +49,8 @@ router.get('/proposals', verifyGroupMembership(), listGroupProposals);
  *     summary: 새로운 다중 서명 트랜잭션 제안 생성
  *     tags:
  *       - Multi-Signature
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: groupId
  *         in: path
@@ -57,12 +64,8 @@ router.get('/proposals', verifyGroupMembership(), listGroupProposals);
  *           schema:
  *             type: object
  *             required:
- *               - proposedBy
  *               - transaction
  *             properties:
- *               proposedBy:
- *                 type: string
- *                 description: 제안한 사용자 ID
  *               transaction:
  *                 type: object
  *                 description: XRPL 트랜잭션 데이터
@@ -82,6 +85,8 @@ router.post('/proposals', verifyGroupMembership(), createProposal);
  *     summary: 다중 서명 제안 상세 조회
  *     tags:
  *       - Multi-Signature
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: proposalId
  *         in: path
@@ -92,7 +97,7 @@ router.post('/proposals', verifyGroupMembership(), createProposal);
  *       '200':
  *         description: 제안 상세 정보
  */
-router.get('/proposals/:proposalId', getProposal);
+router.get('/proposals/:proposalId', verifyGroupMembership(), getProposal);
 
 /**
  * @openapi
@@ -101,6 +106,8 @@ router.get('/proposals/:proposalId', getProposal);
  *     summary: 다중 서명 제안에 서명
  *     tags:
  *       - Multi-Signature
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: proposalId
  *         in: path
@@ -114,12 +121,8 @@ router.get('/proposals/:proposalId', getProposal);
  *           schema:
  *             type: object
  *             required:
- *               - userId
  *               - userWalletSeed
  *             properties:
- *               userId:
- *                 type: string
- *                 description: 서명하는 사용자 ID
  *               userWalletSeed:
  *                 type: string
  *                 description: 사용자 지갑 시드
@@ -127,7 +130,7 @@ router.get('/proposals/:proposalId', getProposal);
  *       '200':
  *         description: 서명 결과
  */
-router.post('/proposals/:proposalId/sign', signProposal);
+router.post('/proposals/:proposalId/sign', verifyGroupMembership(), signProposal);
 
 /**
  * @openapi
@@ -136,6 +139,8 @@ router.post('/proposals/:proposalId/sign', signProposal);
  *     summary: 다중 서명 트랜잭션 실행
  *     tags:
  *       - Multi-Signature
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: proposalId
  *         in: path

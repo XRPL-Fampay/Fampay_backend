@@ -4,10 +4,11 @@ const multiSignatureService = require('../services/multiSignatureService');
 async function createProposal(req, res, next) {
   try {
     const { groupId } = req.params;
-    const { proposedBy, transaction, description } = req.body;
+    const { transaction, description } = req.body;
+    const proposedBy = req.user.id;
 
-    if (!proposedBy || !transaction) {
-      throw createError(400, 'proposedBy and transaction are required');
+    if (!transaction) {
+      throw createError(400, 'transaction is required');
     }
 
     const result = await multiSignatureService.createTransactionProposal({
@@ -26,10 +27,11 @@ async function createProposal(req, res, next) {
 async function signProposal(req, res, next) {
   try {
     const { proposalId } = req.params;
-    const { userId, userWalletSeed } = req.body;
+    const { userWalletSeed } = req.body;
+    const userId = req.user.id;
 
-    if (!userId || !userWalletSeed) {
-      throw createError(400, 'userId and userWalletSeed are required');
+    if (!userWalletSeed) {
+      throw createError(400, 'userWalletSeed is required');
     }
 
     const result = await multiSignatureService.signProposal({

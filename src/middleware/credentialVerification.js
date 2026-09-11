@@ -67,14 +67,14 @@ function verifyGroupMembership() {
   return async (req, res, next) => {
     try {
       const groupId = req.params.groupId || req.body.groupId || req.query.groupId;
-      const userId = req.params.userId || req.body.userId || req.query.userId;
+      const userId = req.user?.id;
 
       if (!groupId) {
         return next(createError(400, 'groupId is required'));
       }
 
       if (!userId) {
-        return next(createError(400, 'userId is required'));
+        return next(createError(401, '인증이 필요합니다.'));
       }
 
       // Get group with members
@@ -107,14 +107,14 @@ function verifyGroupAdmin() {
   return async (req, res, next) => {
     try {
       const groupId = req.params.groupId || req.body.groupId || req.query.groupId;
-      const userId = req.params.userId || req.body.userId || req.query.userId;
+      const userId = req.user?.id;
 
       if (!groupId) {
         return next(createError(400, 'groupId is required'));
       }
 
       if (!userId) {
-        return next(createError(400, 'userId is required'));
+        return next(createError(401, '인증이 필요합니다.'));
       }
 
       // Get group with members

@@ -109,7 +109,7 @@ async function listTransactions(req, res, next) {
 async function createPlan(req, res, next) {
   try {
     const { groupId } = req.params;
-    const plan = await createRecurringPlan({ groupId, ...req.body });
+    const plan = await createRecurringPlan({ groupId, ...req.body, createdById: req.user.id });
     res.status(201).json(plan);
   } catch (error) {
     next(error);
